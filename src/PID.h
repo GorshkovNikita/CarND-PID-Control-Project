@@ -23,7 +23,7 @@ class PID {
    * Update the PID error variables given cross track error.
    * @param cte The current cross track error
    */
-  void UpdateError(double cte);
+  double CalculateSteering(double cte);
 
   /**
    * Calculate the total PID error.
@@ -45,6 +45,9 @@ class PID {
   double Kp;
   double Ki;
   double Kd;
+
+  double prev_cte;
+  double cte_acc;
 };
 
 #endif  // PID_H
