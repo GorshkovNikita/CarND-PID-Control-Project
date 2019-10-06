@@ -34,7 +34,7 @@ int main() {
   uWS::Hub h;
 
   PID pid;
-  pid.Init(0.05, 0.001, 1.5);
+  pid.Init(0.05, 0.0001, 1.5);
   pid.InitTwiddle();
 
   h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
@@ -65,16 +65,21 @@ int main() {
           pid.UpdateError(cte);
           double steer_value = pid.TotalError();
 
-          std::cout << "CTE: " << cte << " Steering Value: " << steer_value << std::endl;
+//          std::cout << "CTE: " << cte << " Steering Value: " << steer_value << std::endl;
 
-//          pid.Twiddle();
+          pid.Twiddle();
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = 0.3;
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-          std::cout << msg << std::endl;
+//          std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+
+          if (pid.GetIterations() == 0) {
+              std::string reset_msg = "42[\"reset\",{}]";
+              ws.send(reset_msg.data(), reset_msg.length(), uWS::OpCode::TEXT);
+          }
         }  // end "telemetry" if
       } else {
         // Manual driving

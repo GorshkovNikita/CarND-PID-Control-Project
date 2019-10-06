@@ -37,6 +37,8 @@ class PID {
    */
   double TotalError();
 
+  int GetIterations();
+
  private:
   /**
    * PID Errors
@@ -48,9 +50,7 @@ class PID {
   /**
    * PID Coefficients
    */ 
-  double Kp;
-  double Ki;
-  double Kd;
+  std::vector<double> p;
 
   bool twiddling;
   double twiddleTolerance;
@@ -58,6 +58,17 @@ class PID {
   std::vector<double> dp;
   double totalError;
   double bestError;
+  int curIdx;
+  int iterationsToIgnore;
+
+  enum TwiddleState {
+      STARTED,
+      INCREMENT,
+      DECREMENT
+  };
+
+  TwiddleState state;
+
 };
 
 #endif  // PID_H

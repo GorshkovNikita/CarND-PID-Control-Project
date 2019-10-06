@@ -10,9 +10,7 @@ PID::PID() {}
 PID::~PID() {}
 
 void PID::Init(double Kp, double Ki, double Kd) {
-    this->Kp = Kp;
-    this->Ki = Ki;
-    this->Kd = Kd;
+    this->p = { Kp, Ki, Kd };
     this->p_error = 0.0;
     this->i_error = 0.0;
     this->d_error = 0.0;
@@ -23,10 +21,13 @@ void PID::InitTwiddle() {
     this->twiddling = true;
     this->twiddleTolerance = 0.001;
     this->iterations = 0;
+    this->iterationsToIgnore = 200;
     //           p    i    d
-    this->dp = { 1.0, 1.0, 1.0};
+    this->dp = { 1.0, 1.0, 1.0 };
     this->totalError = 0;
     this->bestError = DBL_MAX;
+    this->curIdx = 0;
+    this->state = STARTED;
 }
 
 void PID::UpdateError(double cte) {
@@ -34,26 +35,75 @@ void PID::UpdateError(double cte) {
     p_error = cte;
     i_error += cte;
     iterations++;
+//    if (iterations > iterationsToIgnore)
+    totalError += pow(cte, 2);
+}
+
+double PID::TotalError() {
+    double err = -(p[0] * p_error + p[1] * i_error + p[2] * d_error);
+    if (err < -1) {
+        return -1;
+    }
+    if (err > 1) {
+        return 1;
+    }
+    return err;
 }
 
 void PID::Twiddle() {
-    if (twiddling) {
-        totalError += pow(TotalError(), 2);
-        double currErr = totalError / iterations;
+    if (twiddling && iterations > iterationsToIgnore) {
+        double currErr = totalError / (iterations); // - iterationsToIgnore);
+        std::cout << "currErr: " << currErr << std::endl;
         double totalChange = dp[0] + dp[1] + dp[2];
         if (totalChange > twiddleTolerance) {
-            std::cout << "Twiddling ..." << std::endl;
-            int idx = iterations % dp.size();
-            
+            switch (state) {
+                case STARTED: {
+                    p[curIdx] += dp[curIdx];
+                    state = INCREMENT;
+                    break;
+                }
+                case INCREMENT: {
+                    if (currErr < bestError) {
+                        bestError = currErr;
+                        dp[curIdx] *= 1.1;
+                        curIdx = (curIdx + 1) % p.size();
+                        state = STARTED;
+                    } else {
+                        p[curIdx] -= 2 * dp[curIdx];
+                        state = DECREMENT;
+                    }
+                    break;
+                }
+                case DECREMENT: {
+                    if (currErr < bestError) {
+                        bestError = currErr;
+                        dp[curIdx] *= 1.1;
+                    } else {
+                        p[curIdx] += dp[curIdx];
+                        dp[curIdx] *= 0.9;
+                    }
+                    curIdx = (curIdx + 1) % p.size();
+                    state = STARTED;
+                    break;
+                }
+            }
+            std::cout << "Coefficients dKp = " << this->dp[0] <<
+                      " dKi = " << this->dp[1] <<
+                      " dKd = " << this->dp[2] << std::endl;
+            std::cout << "Coefficients Kp = " << this->p[0] <<
+                      " Ki = " << this->p[1] <<
+                      " Kd = " << this->p[2] << std::endl;
+            iterations = 0;
+            totalError = 0.0;
         } else {
-            std::cout << "Final coefficients Kp = " << this->Kp <<
-                         " Ki = " << this->Ki <<
-                         " Kd = " << this->Kd << std::endl;
+            std::cout << "Final coefficients Kp = " << this->p[0] <<
+                         " Ki = " << this->p[1] <<
+                         " Kd = " << this->p[2] << std::endl;
             twiddling = false;
         }
     }
 }
 
-double PID::TotalError() {
-    return - Kp * p_error - Ki * i_error - Kd * d_error;
+int PID::GetIterations() {
+    return iterations;
 }
