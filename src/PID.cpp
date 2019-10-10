@@ -21,9 +21,9 @@ void PID::InitTwiddle() {
     this->twiddling = true;
     this->twiddleTolerance = 0.001;
     this->iterations = 0;
-    this->iterationsToIgnore = 200;
+    this->iterationsToIgnore = 250;
     //           p    i    d
-    this->dp = { 1.0, 1.0, 1.0 };
+    this->dp = { 0.05, 0.0005, 0.1 };
     this->totalError = 0;
     this->bestError = DBL_MAX;
     this->curIdx = 0;
@@ -35,24 +35,20 @@ void PID::UpdateError(double cte) {
     p_error = cte;
     i_error += cte;
     iterations++;
-//    if (iterations > iterationsToIgnore)
-    totalError += pow(cte, 2);
+    if (iterations < iterationsToIgnore)
+        totalError += pow(cte, 2);
 }
 
 double PID::TotalError() {
     double err = -(p[0] * p_error + p[1] * i_error + p[2] * d_error);
-    if (err < -1) {
-        return -1;
-    }
-    if (err > 1) {
-        return 1;
-    }
+    if (err < -1) return -1;
+    if (err > 1) return 1;
     return err;
 }
 
 void PID::Twiddle() {
     if (twiddling && iterations > iterationsToIgnore) {
-        double currErr = totalError / (iterations); // - iterationsToIgnore);
+        double currErr = totalError; // / (iterationsToIgnore);
         std::cout << "currErr: " << currErr << std::endl;
         double totalChange = dp[0] + dp[1] + dp[2];
         if (totalChange > twiddleTolerance) {
@@ -65,7 +61,7 @@ void PID::Twiddle() {
                 case INCREMENT: {
                     if (currErr < bestError) {
                         bestError = currErr;
-                        dp[curIdx] *= 1.1;
+                        dp[curIdx] *= 1.2;
                         curIdx = (curIdx + 1) % p.size();
                         state = STARTED;
                     } else {
@@ -77,10 +73,10 @@ void PID::Twiddle() {
                 case DECREMENT: {
                     if (currErr < bestError) {
                         bestError = currErr;
-                        dp[curIdx] *= 1.1;
+                        dp[curIdx] *= 1.2;
                     } else {
                         p[curIdx] += dp[curIdx];
-                        dp[curIdx] *= 0.9;
+                        dp[curIdx] *= 0.8;
                     }
                     curIdx = (curIdx + 1) % p.size();
                     state = STARTED;
